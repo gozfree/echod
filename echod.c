@@ -82,19 +82,14 @@ void on_recv(int fd, void *arg)
     memset(tmp, 0, sizeof(tmp));
     ret = skt_recv(r->fd, tmp, 2048);
     if (ret > 0) {
-        logi("skt_recv: fd = %d, ret = %d, tmp=%s\n", fd, ret, tmp);
+        logi("skt_recv: fd = %d, r->fd = %d, ret = %d, tmp=%s\n", fd, r->fd, ret, tmp);
         ret = skt_send(r->fd, tmp, ret);
-//        ret = skt_send(r->fd, "HTTP/1.1 200 OK\n\n", 20);
-//        ret = skt_send(r->fd, "Content-Type: application/json\n\n", 35);
         logi("skt_send: ret = %d\n", ret);
-//        ret = skt_send(r->fd, "{\"code\":\"200\", \"msg\":\"OK\" }\n", 22);
-//        printf("skt_send: ret = %d\n", ret);
     } else if (ret == 0) {
         echo_connect_destroy(_echod, r);
     } else if (ret < 0) {
         loge("recv failed!\n");
     }
-    //r->fd = fd;//must be reset
 }
 
 void on_error(int fd, void *arg)
@@ -152,6 +147,10 @@ void echo_connect_create(struct echod *echod,
         loge("skt_set_nonblock failed!\n");
         return;
     }
+    if (0 > skt_set_tcp_keepalive(fd, 1)) {
+        loge("skt_set_tcp_keepalive failed!\n");
+        return;
+    }
     create_uuid(uuid, MAX_UUID_LEN, fd, ip, port);
     uuid_hash = hash_atoi(uuid, sizeof(uuid));
     struct gevent *e = gevent_create(fd, on_recv, NULL, on_error, (void *)ec);
@@ -201,7 +200,7 @@ void on_connect(int fd, void *arg)
 int echod_init(uint16_t port)
 {
     int fd;
-    fd = skt_tcp_bind_listen(NULL, port, 1);
+    fd = skt_tcp_bind_listen(NULL, port);
     if (fd == -1) {
         loge("skt_tcp_bind_listen port:%d failed!\n", port);
         return -1;
